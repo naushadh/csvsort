@@ -1,4 +1,8 @@
-resolver: lts-12.14
+resolver: nightly-2018-10-25
 
 packages:
 - .
+
+# extra-deps:
+# - git: git@github.com:naushadh/streamly.git
+#   commit: 8a7cec09145438a4e11a8c1bfe2a57f6fc712a22

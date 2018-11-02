@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 738f66e1b7fb9e084f06cce098f061d9d8dde6e1e808592fa92f7ed47834a109
+-- hash: 05653a7117485d760d40194b49b026290de5e4db86d59884413a6475d6cede25
 
 name:           filesort
 version:        0.1.0.0
@@ -33,9 +33,18 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , bytestring
+    , cassava
+    , directory
+    , streamly
+    , temporary
+    , time
+    , transformers
+    , vector
+    , vector-algorithms
   default-language: Haskell2010
 
-executable filesort-exe
+executable filesort
   main-is: Main.hs
   other-modules:
       Paths_filesort
@@ -44,7 +53,39 @@ executable filesort-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , bytestring
+    , cassava
+    , directory
     , filesort
+    , optparse-applicative
+    , streamly
+    , temporary
+    , time
+    , transformers
+    , vector
+    , vector-algorithms
+  default-language: Haskell2010
+
+executable filesort-gen
+  main-is: Main.hs
+  other-modules:
+      Paths_filesort
+  hs-source-dirs:
+      gen
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , bytestring
+    , cassava
+    , directory
+    , filesort
+    , optparse-applicative
+    , streamly
+    , temporary
+    , time
+    , transformers
+    , vector
+    , vector-algorithms
   default-language: Haskell2010
 
 test-suite filesort-test
@@ -57,5 +98,14 @@ test-suite filesort-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , bytestring
+    , cassava
+    , directory
     , filesort
+    , streamly
+    , temporary
+    , time
+    , transformers
+    , vector
+    , vector-algorithms
   default-language: Haskell2010
