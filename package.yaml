@@ -28,6 +28,9 @@ dependencies:
 - vector-algorithms
 - temporary
 - directory
+- filepath
+# - time
+# - text
 
 library:
   source-dirs: src

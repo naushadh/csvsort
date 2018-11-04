@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: aed808e95c8ecda32d268bd0c6022a07f2b8bc720f187277d03c61bf2d109f3a
+-- hash: 557692cd23c6e7b0a606a39ebd552ff2ffe1b3cd83a24a152abd8d259b10069d
 
 name:           filesort
 version:        0.1.0.0
@@ -36,6 +36,7 @@ library
     , bytestring
     , cassava
     , directory
+    , filepath
     , streamly
     , temporary
     , vector
@@ -54,6 +55,7 @@ executable filesort
     , bytestring
     , cassava
     , directory
+    , filepath
     , filesort
     , optparse-applicative
     , streamly
@@ -74,6 +76,7 @@ executable filesort-gen
     , bytestring
     , cassava
     , directory
+    , filepath
     , filesort
     , optparse-applicative
     , streamly
@@ -95,6 +98,7 @@ test-suite filesort-test
     , bytestring
     , cassava
     , directory
+    , filepath
     , filesort
     , streamly
     , temporary
