@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 05653a7117485d760d40194b49b026290de5e4db86d59884413a6475d6cede25
+-- hash: aed808e95c8ecda32d268bd0c6022a07f2b8bc720f187277d03c61bf2d109f3a
 
 name:           filesort
 version:        0.1.0.0
@@ -38,8 +38,6 @@ library
     , directory
     , streamly
     , temporary
-    , time
-    , transformers
     , vector
     , vector-algorithms
   default-language: Haskell2010
@@ -60,8 +58,6 @@ executable filesort
     , optparse-applicative
     , streamly
     , temporary
-    , time
-    , transformers
     , vector
     , vector-algorithms
   default-language: Haskell2010
@@ -82,8 +78,6 @@ executable filesort-gen
     , optparse-applicative
     , streamly
     , temporary
-    , time
-    , transformers
     , vector
     , vector-algorithms
   default-language: Haskell2010
@@ -104,8 +98,6 @@ test-suite filesort-test
     , filesort
     , streamly
     , temporary
-    , time
-    , transformers
     , vector
     , vector-algorithms
   default-language: Haskell2010

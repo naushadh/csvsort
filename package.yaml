@@ -23,11 +23,9 @@ dependencies:
 - base >= 4.7 && < 5
 - bytestring
 - streamly
-- time
 - cassava
 - vector
 - vector-algorithms
-- transformers
 - temporary
 - directory
 

@@ -28,8 +28,8 @@ help:
 .PHONY: help
 
 build:
-	stack build --pedantic --ghc-options "-O2 -optc-O3 -optc-ffast-math -fforce-recomp"
-	stack install filesort
+	stack build --verbosity warn --pedantic --ghc-options "-O2 -optc-O3 -optc-ffast-math -fforce-recomp"
+	stack install --verbosity warn filesort
 .PHONY: build
 
 seed: build
@@ -54,5 +54,5 @@ test: build clean
 .PHONY: test
 
 clean:
-	rm .scratch/debug/*
+	rm -f .scratch/debug/*
 .PHONY: clean

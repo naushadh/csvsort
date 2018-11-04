@@ -16,7 +16,6 @@ import           Data.List.NonEmpty (NonEmpty)
 import           Data.Char (ord)
 import           Data.Function (on)
 
-import qualified Data.Time as Time
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Vector as V
@@ -194,9 +193,7 @@ listDirectory dir = fmap go <$> Dir.listDirectory dir
     go fp = dir <> "/" <> fp
 
 getTempFile :: FilePath -> IO FilePath
-getTempFile dir = (\fp -> dir ++ "/" ++ fp) . format <$> Time.getCurrentTime
-  where
-    format = Time.formatTime Time.defaultTimeLocale "%s.%q"
+getTempFile dir = Temp.emptyTempFile dir "sort.txt"
 
 csvEncodeOpt :: Char -> Csv.EncodeOptions
 csvEncodeOpt delim
