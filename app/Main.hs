@@ -24,13 +24,16 @@ config
       ( Opt.long "header"
       <> Opt.help "Whether file has header" )
   <*> Opt.option Opt.auto
-      ( Opt.long "delimiter"
+      ( Opt.long "field-separator"
       <> Opt.help "Field separator"
       <> Opt.showDefault
       <> Opt.value Lib.defaultDelimiter )
-  <*> Opt.option Opt.auto
-      ( Opt.long "buffer_size"
-      <> Opt.help "Bytes to stream in at once"
+  <*> Opt.option (Opt.maybeReader parseBufferSize)
+      ( Opt.long "buffer-size"
+      <> Opt.metavar "SIZE"
+      <> Opt.help "Use SIZE for main memory buffer. SIZE may be followed by the \
+                    \ following multiplicative suffixes: % 1% of memory, b 1, K \
+                    \ 1024 (default), and so on for M, G, T, P, E, Z, Y."
       <> Opt.showDefault
       <> Opt.value Lib.defaultBufferSize )
   <*> Opt.option (Opt.maybeReader parseNonEmpty)
@@ -38,9 +41,23 @@ config
       <> Opt.metavar "KEYS"
       <> Opt.help "Indicies of the fields to sort by" )
   <*> optional (Opt.strOption
-      ( Opt.long "out"
+      ( Opt.long "output"
       <> Opt.metavar "DESTINATION"
       <> Opt.help "Where to output results; defaults to STDOUT" ))
+
+parseBufferSize :: String -> Maybe Int
+parseBufferSize s = case reads s of
+    [(x, "b")] -> pure x
+    [(x, "")] ->  pure (x * 1024)
+    [(x, "K")] -> pure (x * 1024)
+    [(x, "M")] -> pure (x * 1024 * 1024)
+    [(x, "G")] -> pure (x * 1024 * 1024 * 1024)
+    [(x, "T")] -> pure (x * 1024 * 1024 * 1024 * 1024)
+    [(x, "P")] -> pure (x * 1024 * 1024 * 1024 * 1024 * 1024)
+    [(x, "E")] -> pure (x * 1024 * 1024 * 1024 * 1024 * 1024 * 1024)
+    [(x, "Z")] -> pure (x * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024)
+    [(x, "Y")] -> pure (x * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024)
+    _ -> Nothing
 
 parseNonEmpty :: (Read a) => String -> Maybe (NonEmpty.NonEmpty a)
 parseNonEmpty s = readMaybe s >>= NonEmpty.nonEmpty

@@ -35,11 +35,18 @@ config
       ( Opt.long "out"
       <> Opt.metavar "DESTINATION"
       <> Opt.help "Where to generate data" )
-  <*> Opt.option Opt.auto
+  <*> Opt.option (Opt.maybeReader parseLimit)
       ( Opt.long "limit"
       <> Opt.help "Number of rows to generate"
       <> Opt.showDefault
       <> Opt.value 10000 )
+
+parseLimit :: String -> Maybe Natural
+parseLimit s = case reads s of
+    [(x, "")] ->  pure x
+    [(x, "K")] -> pure (x * 1000)
+    [(x, "M")] -> pure (x * 1000 * 1000)
+    _ -> Nothing
 
 data Config = Config FilePath Natural
   deriving Show
