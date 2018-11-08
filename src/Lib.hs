@@ -19,6 +19,7 @@ import           Data.Function (on)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Vector as V
+import qualified Data.Vector.Split as Split
 import qualified Data.Vector.Algorithms.Merge as VA
 import qualified Data.Csv as Csv
 import qualified Data.Csv.Incremental as Csvi
@@ -29,7 +30,7 @@ import qualified Streamly.Prelude as S
 import qualified System.IO.Temp as Temp
 import qualified System.Directory as Dir
 import qualified System.FilePath as FP
-import qualified Data.List as List
+import qualified Data.PQueue.Min as Q
 
 -- logging
 -- import qualified Data.Time as Time
@@ -42,6 +43,9 @@ defaultDelimiter = ','
 defaultBufferSize :: BufferSize
 defaultBufferSize = 200 * 1024 * 1024
 
+mf :: Int
+mf = 4
+
 type RowId = Int
 type BufferSize = Int
 type Row = Csv.Record
@@ -53,12 +57,21 @@ data Entity a
   = Entity
   { entityKey :: PK
   , entityVal :: a
-  }
-  deriving Show
+  } deriving Show
 instance Eq (Entity a) where
   (==) = (==) `on` entityKey
 instance Ord (Entity a) where
   (<=) = (<=) `on` entityKey
+
+data Indexed a
+  = Indexed
+  { indexKey :: Int
+  , indexVal :: a
+  } deriving Show
+instance Eq a => Eq (Indexed a) where
+  (==) = (==) `on` indexVal
+instance Ord a => Ord (Indexed a) where
+  (<=) = (<=) `on` indexVal
 
 data Config
   = Config
@@ -79,7 +92,7 @@ data Error
 instance Exception.Exception Error
 
 debug :: Bool
-debug = False
+debug = True
 
 -- logStdout :: T.Text -> IO ()
 -- logStdout msg = Time.getCurrentTime >>= TIO.putStrLn . tpack >> TIO.putStrLn msg
@@ -107,9 +120,7 @@ createSortedSlices :: Config -> Csv.HasHeader -> IO.Handle -> FilePath -> IO ()
 createSortedSlices c hasHeader h dir
   = S.runStream
   . S.asyncly
-  -- $ S.mapM (\rs -> VA.sort rs >> V.unsafeFreeze rs >>= saveTemp delim dir . fmap entityVal)
   $ S.mapM (saveTemp delim dir . fmap entityVal)
-  -- |$ S.mapM (\rs -> VA.sort rs >> V.unsafeFreeze rs)
   |$ S.mapM V.unsafeFreeze
   |$ S.mapM (\rs -> VA.sort rs >> pure rs)
   |$ S.mapM V.unsafeThaw
@@ -123,7 +134,6 @@ createSortedSlices c hasHeader h dir
     pkIdx = configKeys c
     delim = configDelimiter c
     rowId = startRowId hasHeader
-    -- sortByPk = VA.sortBy (compare `on` fst)
 
 saveTemp :: Char -> FilePath -> V.Vector Row -> IO ()
 saveTemp delim dir rs = getTempFile dir >>= flip LBS.writeFile bs -- >> putStrLn "Saved to Temp"
@@ -146,83 +156,82 @@ mergeSortedSlices c header dir = withTarget (configDestination c) go
     go h = do
       Maybe.maybe (pure ()) (hPutLnBS h) header
       fps <- listDirectory dir
-      fpSorted <- mergeNFiles c fps
+      fpSorted <- mergeNFiles c (V.fromList fps)
       let toHandle fp = LBS.readFile fp >>= LBS.hPut h
       Maybe.maybe (pure ()) toHandle fpSorted
 
-pairs :: [a] -> (Maybe a, [(a, a)])
-pairs xs = (loner, zip left right)
+mergeNFiles :: Config -> V.Vector FilePath -> IO (Maybe FilePath)
+mergeNFiles c fs
+  | n == 0  = pure Nothing
+  | n == 1  = pure . pure $ V.head fs
+  | n <= mf = pure <$> mergeNFiles' c fs
+  | otherwise = go >>= mergeNFiles c
   where
-    n = length xs `quot` 2
-    (nr, loner) = if odd (length xs)
-                  then (n+1, pure $ xs List.!! n)
-                  else (n, Nothing)
-    left = take n xs
-    right = drop nr xs
+    n = V.length fs
+    go = do
+        let cfs = Split.chunksOf mf fs
+        S.runStream
+          . S.asyncly
+          . S.mapM (mergeNFiles' c)
+          . S.fromList
+          $ cfs
+        pure . V.fromList $ fmap V.head cfs
 
-mergeNFiles :: Config -> [FilePath] -> IO (Maybe FilePath)
-mergeNFiles _ [] = pure Nothing
-mergeNFiles _ [fp] = pure . pure $ fp
-mergeNFiles c fps = mergeNFiles' c fps >>= mergeNFiles c
-
-mergeNFiles' :: Config -> [FilePath] -> IO [FilePath]
-mergeNFiles' c fps
-  = go >> pure fpsOut
-  where
-    (fpl,fpsPaired) = pairs fps
-    fpsMerged = fst <$> fpsPaired
-    fpsOut = Maybe.maybe fpsMerged (:fpsMerged) fpl
-    go  = S.runStream
-        . S.asyncly
-        . S.mapM (uncurry (merge2Files c))
-        . S.fromList
-        $ fpsPaired
-
-merge2Files :: Config -> FilePath -> FilePath -> IO FilePath
-merge2Files c fp1 fp2 = do
+mergeNFiles' :: Config -> V.Vector FilePath -> IO FilePath
+mergeNFiles' c fs = do
+  let fp1 = V.head fs
   let dir = FP.takeDirectory fp1
-  fp3 <- getTempFile dir
+  fpN <- getTempFile dir
   let delim = configDelimiter c
   let fromCsv'
         = fmap (uncurry Entity . validate (configKeys c))
         . flatten
         . fromCsv delim (configBufferSize c) 0
+  let go hs = do
+        let ss = fmap fromCsv' hs
+        let sN = mergeNAsync ss
+        toCsv delim fpN . S.map entityVal $ sN
 
-  IO.withFile fp1 IO.ReadMode $ \h1 ->
-    IO.withFile fp2 IO.ReadMode $ \h2 -> do
-      let s1 = fromCsv' h1
-      let s2 = fromCsv' h2
-      let s3 = merge2Async s1 s2
-      toCsv delim fp3 . S.map entityVal $ s3
+  Exception.bracket
+    (mapM (flip IO.openFile IO.ReadMode) fs)
+    (mapM_ IO.hClose)
+    go
 
-  -- we overwrite 3 to 1 since `Streamly`
+  -- we overwrite N to 1 since `Streamly`
   -- - discards results on `runStream` (which supports async processing)
   -- - returns results in `toList` (which only supports serial processing)
   -- so moving to fp1 allows the caller to indirectly collect the merged result
-  Dir.renameFile fp3 fp1
-  Dir.removeFile fp2
+  mapM_ Dir.removeFile fs
+  Dir.renameFile fpN fp1
   return fp1
 
--- | merge two streams generating the elements from each in parallel
-merge2Async :: Ord a => S.Serial a -> S.Serial a -> S.Serial a
-merge2Async a b = do
-  x <- S.yieldM $ S.mkAsync a
-  y <- S.yieldM $ S.mkAsync b
-  merge2 x y
+mergeNAsync :: Ord a => V.Vector (S.Serial a) -> S.Serial a
+mergeNAsync ss = do
+  ssA <- mapM (S.yieldM . S.mkAsync) ss
+  mhs <- mapM (S.yieldM . S.uncons) ssA
+  let (hs,ssO) = V.unzip . fmap Maybe.fromJust . V.filter Maybe.isJust $ mhs
+  let ihs = V.imap Indexed hs
+  mergeN (Q.fromList . V.toList $ ihs) ssO
 
-merge2 :: Ord a => S.Serial a -> S.Serial a -> S.Serial a
-merge2 a b = do
-  a1 <- S.yieldM $ S.uncons a
-  case a1 of
-    Nothing -> b
-    Just (x, ma) -> do
-      b1 <- S.yieldM $ S.uncons b
-      case b1 of
-        Nothing -> return x <> ma
-        Just (y, mb) ->
-          if y < x
-          then return y <> merge2 (return x <> ma) mb
-          else return x <> merge2 ma (return y <> mb)
+mergeN :: Ord a => Q.MinQueue (Indexed a) -> V.Vector (S.Serial a) -> S.Serial a
+mergeN q ss
+  | n == 0 = mempty
+  | n == 1 = V.head ss
+  | otherwise = go
+  where
+    n = V.length ss
+    go = case Q.minView q of
+          Nothing -> S.nil
+          Just (Indexed i x, qRem) -> do
+            case (ss V.!? i) of
+              Nothing -> pure x <> mergeN qRem ss
+              Just s -> do
+                mh <- S.yieldM . S.uncons $ s
+                let (qNext, oss)
+                      = case mh of
+                        Nothing -> (qRem, ss)
+                        Just (h, sNext) -> (Q.insert (Indexed i h) qRem, ss V.// [(i, sNext)])
+                pure x <> mergeN qNext oss
 
 flatten :: S.MonadAsync m => S.SerialT m [a] -> S.SerialT m a
 flatten a = do
@@ -304,5 +313,5 @@ toCsv delim fp s
   . Csvi.encodeWith (csvEncodeOpt delim)
   =<< mkBuilder
   where
-    appendRecord x b = b <> Csvi.encodeRecord x
-    mkBuilder = S.foldr appendRecord mempty s
+    appendRecord b x = b <> Csvi.encodeRecord x
+    mkBuilder = S.foldl' appendRecord mempty s

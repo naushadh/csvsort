@@ -47,6 +47,11 @@ run-x: build clean
 	&> .scratch/out/x-$(ROWS)-$(TIMESTAMP)-$(MARKER).txt
 .PHONY: run-x
 
+# run-x: build clean
+# 	(/usr/local/bin/time -v filesort --keys "[0]" --in /tmp/in-$(ROWS).csv --output /tmp/out-x-$(ROWS).csv --buffer-size=20M) \
+# 	&> .scratch/out/x-$(ROWS)-$(TIMESTAMP)-Buff20MB.$(MARKER).txt
+# .PHONY: run-x
+
 test: build clean
 	sort --key 1,1 --output /tmp/test-base.csv data/comma-in-content.csv
 	filesort --keys="[0]" --output /tmp/test-x.csv --in data/comma-in-content.csv

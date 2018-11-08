@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 557692cd23c6e7b0a606a39ebd552ff2ffe1b3cd83a24a152abd8d259b10069d
+-- hash: 58636d41fa34a9a8a7c3b1fe2d24b6308324ee33ac07073dee129e7cb4edd572
 
 name:           filesort
 version:        0.1.0.0
@@ -37,10 +37,12 @@ library
     , cassava
     , directory
     , filepath
+    , pqueue
     , streamly
     , temporary
     , vector
     , vector-algorithms
+    , vector-split
   default-language: Haskell2010
 
 executable filesort
@@ -58,10 +60,12 @@ executable filesort
     , filepath
     , filesort
     , optparse-applicative
+    , pqueue
     , streamly
     , temporary
     , vector
     , vector-algorithms
+    , vector-split
   default-language: Haskell2010
 
 executable filesort-gen
@@ -79,10 +83,12 @@ executable filesort-gen
     , filepath
     , filesort
     , optparse-applicative
+    , pqueue
     , streamly
     , temporary
     , vector
     , vector-algorithms
+    , vector-split
   default-language: Haskell2010
 
 test-suite filesort-test
@@ -100,8 +106,10 @@ test-suite filesort-test
     , directory
     , filepath
     , filesort
+    , pqueue
     , streamly
     , temporary
     , vector
     , vector-algorithms
+    , vector-split
   default-language: Haskell2010

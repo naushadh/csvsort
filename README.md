@@ -59,28 +59,28 @@ A pure haskell alternative to the [GNU `sort`](http://man7.org/linux/man-pages/m
 - Create a 10M row file with reverse sorted integers.
 
   ```bash
-  $ make seed-10M
-  # creates file at /tmp/in.csv
+  $ ROWS=10M make seed
+  # creates file at /tmp/in-$ROWS.csv
   ```
 
 - Run baseline sort
 
   ```bash
-  $ make run-base
-  # stores runtime stats in .scratch/out/base.txt
+  $ ROWS=10M make run-base
+  # stores runtime stats in .scratch/out/base-$ROWS-$TIMESTAMP-default.txt
   ```
 
 - Run new sort
 
   ```bash
-  $ make run-x
-  # stores runtime stats in .scratch/out/x.txt
+  $ ROWS=10M make run-x
+  # stores runtime stats in .scratch/out/x-$ROWS-$TIMESTAMP-default.txt
   ```
 
 - Compare
 
   ```bash
-  $ diff -u .scratch/out/base.txt .scratch/out/x.txt
+  $ diff -u .scratch/out/base*.txt .scratch/out/x*.txt
   # comparison
   ```
 
@@ -93,33 +93,36 @@ A pure haskell alternative to the [GNU `sort`](http://man7.org/linux/man-pages/m
   Memory|16 GB 2133 MHz LPDDR3
 
   ```diff
+  -       Command being timed: "sort --buffer-size=200M --key 1 /tmp/in-10M.csv --output /tmp/out-base-10M.csv"
   -       User time (seconds): 128.78
   -       System time (seconds): 0.59
   -       Percent of CPU this job got: 301%
   -       Elapsed (wall clock) time (h:mm:ss or m:ss): 0:42.98
-  +       User time (seconds): 55.70
-  +       System time (seconds): 10.94
-  +       Percent of CPU this job got: 241%
-  +       Elapsed (wall clock) time (h:mm:ss or m:ss): 0:27.58
+  +       Command being timed: "filesort --keys [0] --in /tmp/in-10M.csv --output /tmp/out-x-10M.csv"
+  +       User time (seconds): 51.89
+  +       System time (seconds): 10.38
+  +       Percent of CPU this job got: 222%
+  +       Elapsed (wall clock) time (h:mm:ss or m:ss): 0:28.01
           Average shared text size (kbytes): 0
           Average unshared data size (kbytes): 0
           Average stack size (kbytes): 0
           Average total size (kbytes): 0
   -       Maximum resident set size (kbytes): 205736
-  +       Maximum resident set size (kbytes): 4227032
+  +       Maximum resident set size (kbytes): 4215892
           Average resident set size (kbytes): 0
   -       Major (requiring I/O) page faults: 1
   -       Minor (reclaiming a frame) page faults: 102795
   -       Voluntary context switches: 6
   -       Involuntary context switches: 37514
   +       Major (requiring I/O) page faults: 0
-  +       Minor (reclaiming a frame) page faults: 1056169
-  +       Voluntary context switches: 3
-  +       Involuntary context switches: 1666314
+  +       Minor (reclaiming a frame) page faults: 1053366
+  +       Voluntary context switches: 12
+  +       Involuntary context switches: 2488495
           Swaps: 0
-          File system inputs: 0
+  -       File system inputs: 0
   -       File system outputs: 21
-  +       File system outputs: 15
+  +       File system inputs: 1
+  +       File system outputs: 26
           Socket messages sent: 0
           Socket messages received: 0
           Signals delivered: 0

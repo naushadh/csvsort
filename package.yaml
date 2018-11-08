@@ -25,10 +25,12 @@ dependencies:
 - streamly
 - cassava
 - vector
+- vector-split
 - vector-algorithms
 - temporary
 - directory
 - filepath
+- pqueue
 # - time
 # - text
 
