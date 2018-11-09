@@ -36,6 +36,12 @@ config
                     \ 1024 (default), and so on for M, G, T, P, E, Z, Y."
       <> Opt.showDefault
       <> Opt.value Lib.defaultBufferSize )
+  <*> Opt.option (Opt.eitherReader parseNMerge)
+      ( Opt.long "batch-size"
+      <> Opt.metavar "NMERGE"
+      <> Opt.help "merge at most NMERGE inputs at once"
+      <> Opt.showDefault
+      <> Opt.value Lib.defaultNMerge )
   <*> Opt.option (Opt.maybeReader parseNonEmpty)
       ( Opt.long "keys"
       <> Opt.metavar "KEYS"
@@ -59,10 +65,18 @@ parseBufferSize s = case reads s of
     [(x, "Y")] -> pure (x * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024)
     _ -> Nothing
 
-parseNonEmpty :: (Read a) => String -> Maybe (NonEmpty.NonEmpty a)
+parseNMerge :: String -> Either String Lib.NMerge
+parseNMerge s = readEither "Int" s >>= Lib.mkNMerge
+
+parseNonEmpty :: Read a => String -> Maybe (NonEmpty.NonEmpty a)
 parseNonEmpty s = readMaybe s >>= NonEmpty.nonEmpty
 
-readMaybe :: (Read a) => String -> Maybe a
+readMaybe :: Read a => String -> Maybe a
 readMaybe s = case reads s of
-              [(x, "")] -> Just x
-              _ -> Nothing
+                [(x, "")] -> Just x
+                _ -> Nothing
+
+readEither :: Read a => String -> String -> Either String a
+readEither t s = case reads s of
+                [(x, "")] -> pure x
+                _ -> Left $ "Expected " <> t

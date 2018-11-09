@@ -5,6 +5,9 @@ module Lib
   ( Config(..)
   , defaultDelimiter
   , defaultBufferSize
+  , defaultNMerge
+  , mkNMerge
+  , NMerge
   , app
   , probe
   ) where
@@ -43,15 +46,28 @@ defaultDelimiter = ','
 defaultBufferSize :: BufferSize
 defaultBufferSize = 200 * 1024 * 1024
 
-mf :: Int
-mf = 4
-
 type RowId = Int
 type BufferSize = Int
 type Row = Csv.Record
 type PKIdx = NonEmpty Int
 type PK = NonEmpty Csv.Field
 type Delim = Char
+
+newtype NMerge = NMerge { getNMerge :: Int }
+instance Show NMerge where
+  show = show . getNMerge
+
+defaultNMerge :: NMerge
+defaultNMerge = NMerge 16
+
+mkNMerge :: Int -> Either String NMerge
+mkNMerge n
+  | n < min' = Left $ "Must at-least be: " <> show min'
+  | n > max' = Left $ "Cannot exceed rlimit: " <> show max'
+  | otherwise    = pure $ NMerge n
+  where
+    min' = 2
+    max' = 20 -- TODO: constrain by RLIMIT
 
 data Entity a
   = Entity
@@ -79,6 +95,7 @@ data Config
   , configHasHeader :: Bool
   , configDelimiter :: Delim
   , configBufferSize :: BufferSize
+  , configBatchSize :: NMerge
   , configKeys :: PKIdx
   , configDestination :: Maybe FilePath
   } deriving Show
@@ -167,6 +184,7 @@ mergeNFiles c fs
   | n <= mf = pure <$> mergeNFiles' c fs
   | otherwise = go >>= mergeNFiles c
   where
+    mf = getNMerge . configBatchSize $ c
     n = V.length fs
     go = do
         let cfs = Split.chunksOf mf fs
