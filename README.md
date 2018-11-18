@@ -35,7 +35,7 @@ A pure haskell alternative to the [GNU `sort`](http://man7.org/linux/man-pages/m
 - Build+Install
 
   ```bash
-  $ build-perf
+  $ make build
   # build output; installs to $HOME/.local/bin
   ```
 

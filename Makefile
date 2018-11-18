@@ -28,9 +28,12 @@ help:
 .PHONY: help
 
 build:
-	stack build --verbosity warn --pedantic --ghc-options "-O2 -optc-O3 -optc-ffast-math -fforce-recomp"
-	stack install --verbosity warn filesort
+	stack install --verbosity warn --pedantic --ghc-options "-O2 -optc-O3 -optc-ffast-math -optc-march=core2 -fforce-recomp"
 .PHONY: build
+
+build-prof:
+	stack install --pedantic --profile --ghc-options "-O2 -fforce-recomp"
+.PHONY: build-prof
 
 seed: build
 	stack exec -- filesort-gen --out /tmp/in-$(ROWS).csv --limit $(ROWS)
@@ -48,7 +51,7 @@ run-x: build clean
 .PHONY: run-x
 
 # run-x: build clean
-# 	(/usr/local/bin/time -v filesort --keys "[0]" --in /tmp/in-$(ROWS).csv --output /tmp/out-x-$(ROWS).csv --buffer-size=20M) \
+# 	(/usr/local/bin/time -v filesort --keys "[0]" --in /tmp/in-$(ROWS).csv --output /tmp/out-x-$(ROWS).csv --buffer-size=20M +RTS -p -sstderr) \
 # 	&> .scratch/out/x-$(ROWS)-$(TIMESTAMP)-Buff20MB.$(MARKER).txt
 # .PHONY: run-x
 

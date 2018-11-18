@@ -5,6 +5,7 @@ module Lib
   ( Config(..)
   , defaultDelimiter
   , defaultBufferSize
+  , BufferSize
   , defaultNMerge
   , mkNMerge
   , NMerge
@@ -18,6 +19,7 @@ import qualified Data.Maybe as Maybe
 import           Data.List.NonEmpty (NonEmpty)
 import           Data.Char (ord)
 import           Data.Function (on)
+import           GHC.Conc (setNumCapabilities)
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
@@ -98,6 +100,7 @@ data Config
   , configBatchSize :: NMerge
   , configKeys :: PKIdx
   , configDestination :: Maybe FilePath
+  , configParallel :: Int
   } deriving Show
 
 data Error
@@ -118,7 +121,9 @@ debug = True
 --     tpack = T.pack . show
 
 app :: Config -> IO ()
-app c = IO.withFile (configSource c) IO.ReadMode (go (configHasHeader c))
+app c = do
+  setNumCapabilities $ configParallel c
+  IO.withFile (configSource c) IO.ReadMode (go (configHasHeader c))
   where
     withTempDir False m = Temp.withSystemTempDirectory "filesort.txt" m
     withTempDir True m = m ".scratch/debug"
@@ -201,9 +206,11 @@ mergeNFiles' c fs = do
   let dir = FP.takeDirectory fp1
   fpN <- getTempFile dir
   let delim = configDelimiter c
+  let flatten = S.concat :: S.Serial (S.Serial a) -> S.Serial a
   let fromCsv'
         = fmap (uncurry Entity . validate (configKeys c))
         . flatten
+        . S.map S.fromList
         . fromCsv delim (configBufferSize c) 0
   let go hs = do
         let ss = fmap fromCsv' hs
@@ -250,13 +257,6 @@ mergeN q ss
                         Nothing -> (qRem, ss)
                         Just (h, sNext) -> (Q.insert (Indexed i h) qRem, ss V.// [(i, sNext)])
                 pure x <> mergeN qNext oss
-
-flatten :: S.MonadAsync m => S.SerialT m [a] -> S.SerialT m a
-flatten a = do
-  a1 <- S.yieldM $ S.uncons a
-  case a1 of
-    Nothing -> S.nil
-    Just (x, ma) -> S.fromList x <> flatten ma
 
 listDirectory :: FilePath -> IO [FilePath]
 listDirectory dir = fmap go <$> Dir.listDirectory dir

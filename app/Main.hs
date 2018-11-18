@@ -4,17 +4,18 @@ import           Control.Applicative (optional)
 import qualified Lib
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Options.Applicative as Opt
+import           GHC.Conc (getNumCapabilities)
 
 main :: IO ()
-main = Lib.app =<< Opt.execParser opts
+main = getNumCapabilities >>= Opt.execParser . opts >>= Lib.app
   where
-    opts = Opt.info (Opt.helper <*> config)
+    opts n = Opt.info (Opt.helper <*> config n)
       ( Opt.fullDesc
      <> Opt.progDesc "Sort SOURCE by KEYS into DESTINATION"
      <> Opt.header "filesort - RFC 4180 compliant sorting utility" )
 
-config :: Opt.Parser Lib.Config
-config
+config :: Int -> Opt.Parser Lib.Config
+config numCores
   = Lib.Config
   <$> Opt.strOption
       ( Opt.long "in"
@@ -50,6 +51,11 @@ config
       ( Opt.long "output"
       <> Opt.metavar "DESTINATION"
       <> Opt.help "Where to output results; defaults to STDOUT" ))
+  <*> Opt.option Opt.auto
+      ( Opt.long "parallel"
+      <> Opt.metavar "N"
+      <> Opt.help "change the number of sorts run concurrently to N"
+      <> Opt.value numCores )
 
 parseBufferSize :: String -> Maybe Int
 parseBufferSize s = case reads s of
