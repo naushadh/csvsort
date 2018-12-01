@@ -67,14 +67,14 @@ A pure haskell alternative to the [GNU `sort`](http://man7.org/linux/man-pages/m
 
   ```bash
   $ ROWS=10M make run-base
-  # stores runtime stats in .scratch/out/base-$ROWS-$TIMESTAMP-default.txt
+  # stores runtime stats in .scratch/out/base-${TIMESTAMP}-default-10M.txt
   ```
 
 - Run new sort
 
   ```bash
   $ ROWS=10M make run-x
-  # stores runtime stats in .scratch/out/x-$ROWS-$TIMESTAMP-default.txt
+  # stores runtime stats in .scratch/out/x-${TIMESTAMP}-default-10M.txt
   ```
 
 - Compare
@@ -93,36 +93,35 @@ A pure haskell alternative to the [GNU `sort`](http://man7.org/linux/man-pages/m
   Memory|16 GB 2133 MHz LPDDR3
 
   ```diff
-  -       Command being timed: "sort --buffer-size=200M --key 1 /tmp/in-10M.csv --output /tmp/out-base-10M.csv"
+  -       Command being timed: "sort --buffer-size=200M --key 1 /tmp/in.csv --output /tmp/out-base.csv"
+  +       Command being timed: "filesort --keys [0] --in /tmp/in-10M.csv --output /tmp/out-x-10M.csv +RTS -s"
   -       User time (seconds): 128.78
+  +       User time (seconds): 242.45
   -       System time (seconds): 0.59
+  +       System time (seconds): 124.81
   -       Percent of CPU this job got: 301%
+  +       Percent of CPU this job got: 204%
   -       Elapsed (wall clock) time (h:mm:ss or m:ss): 0:42.98
-  +       Command being timed: "filesort --keys [0] --in /tmp/in-10M.csv --output /tmp/out-x-10M.csv"
-  +       User time (seconds): 51.89
-  +       System time (seconds): 10.38
-  +       Percent of CPU this job got: 222%
-  +       Elapsed (wall clock) time (h:mm:ss or m:ss): 0:28.01
+  +       Elapsed (wall clock) time (h:mm:ss or m:ss): 2:59.29
           Average shared text size (kbytes): 0
           Average unshared data size (kbytes): 0
           Average stack size (kbytes): 0
           Average total size (kbytes): 0
   -       Maximum resident set size (kbytes): 205736
-  +       Maximum resident set size (kbytes): 4215892
+  +       Maximum resident set size (kbytes): 712560
           Average resident set size (kbytes): 0
   -       Major (requiring I/O) page faults: 1
-  -       Minor (reclaiming a frame) page faults: 102795
-  -       Voluntary context switches: 6
-  -       Involuntary context switches: 37514
   +       Major (requiring I/O) page faults: 0
-  +       Minor (reclaiming a frame) page faults: 1053366
-  +       Voluntary context switches: 12
-  +       Involuntary context switches: 2488495
+  -       Minor (reclaiming a frame) page faults: 102795
+  +       Minor (reclaiming a frame) page faults: 178260
+  -       Voluntary context switches: 6
+  +       Voluntary context switches: 8
+  -       Involuntary context switches: 37514
+  +       Involuntary context switches: 29854095
           Swaps: 0
-  -       File system inputs: 0
+          File system inputs: 0
   -       File system outputs: 21
-  +       File system inputs: 1
-  +       File system outputs: 26
+  +       File system outputs: 423
           Socket messages sent: 0
           Socket messages received: 0
           Signals delivered: 0

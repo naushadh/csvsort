@@ -5,4 +5,4 @@ packages:
 
 extra-deps:
 - git: git@github.com:naushadh/streamly.git
-  commit: 8a5a8511a32fce43ff24785a5649fef2bdedf318
+  commit: d8daf99c7a3def70843120d57f51f8cef2e77ad4

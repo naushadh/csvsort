@@ -147,9 +147,10 @@ createSortedSlices c hasHeader h dir
   |$ S.mapM (\rs -> VA.sort rs >> pure rs)
   |$ S.mapM V.unsafeThaw
   $ S.map V.fromList
-  . S.filter (not . null)
-  . fmap (fmap (uncurry Entity . validate pkIdx))
   -- |$ probe (putStrLn . (++) "fromCSV row#" . show . fst)
+  . S.mapM S.toList
+  . S.chunksOf 10000
+  . fmap (uncurry Entity . validate pkIdx)
   . fromCsv delim (configBufferSize c) rowId
   $ h
   where
@@ -206,11 +207,8 @@ mergeNFiles' c fs = do
   let dir = FP.takeDirectory fp1
   fpN <- getTempFile dir
   let delim = configDelimiter c
-  let flatten = S.concat :: S.Serial (S.Serial a) -> S.Serial a
   let fromCsv'
         = fmap (uncurry Entity . validate (configKeys c))
-        . flatten
-        . S.map S.fromList
         . fromCsv delim (configBufferSize c) 0
   let go hs = do
         let ss = fmap fromCsv' hs
@@ -232,8 +230,8 @@ mergeNFiles' c fs = do
 
 mergeNAsync :: Ord a => V.Vector (S.Serial a) -> S.Serial a
 mergeNAsync ss = do
-  ssA <- mapM (S.yieldM . S.mkAsync) ss
-  mhs <- mapM (S.yieldM . S.uncons) ssA
+  -- ssA <- mapM (S.yieldM . S.mkAsync) ss
+  mhs <- mapM (S.yieldM . S.uncons) ss
   let (hs,ssO) = V.unzip . fmap Maybe.fromJust . V.filter Maybe.isJust $ mhs
   let ihs = V.imap Indexed hs
   mergeN (Q.fromList . V.toList $ ihs) ssO
@@ -297,39 +295,37 @@ fromCsv
     , MonadIO (t m)
     , Csv.FromRecord a
     )
-  => Delim -> BufferSize -> Int -> IO.Handle -> t m [(RowId, Either String a)]
-fromCsv delim bSize initRowId h
-  = step (initRowId, Csvi.decodeWith opt Csv.NoHeader)
+  => Delim -> BufferSize -> Int -> IO.Handle -> t m (RowId, Either String a)
+fromCsv delim _bSize initRowId = S.unfoldrM (liftIO . go) . (,) initRowId
   where
     opt = Csv.DecodeOptions (fromIntegral . ord $ delim)
-    step (rowId, Csvi.Fail bs e)  = Exception.throw $ FileParseError rowId bs e
-    step (rowId, Csvi.Many rs k)  = consume rowId rs S..: next
-      where
-        next = do
-          p <- liftIO $ feed k
-          step (rowId+length rs, p)
-    step (rowId, Csvi.Done rs)    = S.yield (consume rowId rs)
-    consume rowId = zip [rowId..]
-    feed k = do
+    go (rowId, h) = do
+      let paramsNext = (rowId+1, h)
+      let mkRow x = return . pure $ ((rowId+1, x), paramsNext)
       isEof <- IO.hIsEOF h
       if isEof
-        then return $ k mempty
-        else k `fmap` BS.hGet h bSize
+        then pure Nothing
+        else do
+          l <- BS.hGetLine h
+          let res = Csv.decodeWith opt Csv.NoHeader . LBS.fromStrict $ l
+          case res of
+            Left err -> mkRow . Left $ err
+            Right rs -> if V.null rs
+                        then go (rowId+1, h)
+                        else mkRow . Right . V.head $ rs
 
 getPK :: PKIdx -> Row -> Maybe PK
 getPK pkIdx v = mapM ((V.!?) v) pkIdx
 
 {-# INLINABLE toCsv #-}
 toCsv
-  :: (S.MonadAsync m, Csv.ToRecord a)
+  :: ( Csv.ToRecord a)
   => Char
   -> FilePath
-  -> S.SerialT m a
-  -> m ()
-toCsv delim fp s
-  = (liftIO . LBS.writeFile fp)
-  . Csvi.encodeWith (csvEncodeOpt delim)
-  =<< mkBuilder
+  -> S.SerialT IO a
+  -> IO ()
+toCsv delim fp s = IO.withFile fp IO.WriteMode go
   where
-    appendRecord b x = b <> Csvi.encodeRecord x
-    mkBuilder = S.foldl' appendRecord mempty s
+    go h
+      = S.mapM_ (LBS.hPut h . Csv.encodeWith (csvEncodeOpt delim) . pure)
+      $ s

@@ -2,13 +2,19 @@ define USAGE
 
 Available commands:
 
+  - setup: Setup development environment
+
 	- build: Compile all targets in pedantic mode with performance flags turned on.
+
+	- build-prof: Build all targets in pedantic mode with profiling flags turned on.
 
 	- seed: Seed a data file with 1 Million rows (customize using ROWS).
 
-	- run-base: Run `sort` and capture runtime stats.
+	- run-base: Run `sort` and capture basic runtime stats.
 
-	- run-x: Run `filesort` and capture runtime stats.
+	- run-x: Run `filesort` and capture basic runtime stats (changes args via ARGS).
+
+	- run-x-profile: Run `filesort` and capture detailed runtime stats (changes args via ARGS).
 
 	- test: A/B Test ./data file(s).
 
@@ -22,10 +28,18 @@ export USAGE
 TIMESTAMP := $(shell date +%Y-%m-%dT%H:%M:%S)
 MARKER ?= default
 ROWS ?= 1M
+ARGS ?= --keys "[0]" --in /tmp/in-${ROWS}.csv --output /tmp/out-x-${ROWS}.csv
+# ARGS ?= --keys "[0]" --in /tmp/in-${ROWS}.csv --output /tmp/out-x-${ROWS}.csv --parallel=1 --batch-size=16 --buffer-size=1M
 
 help:
 	@echo "$$USAGE"
 .PHONY: help
+
+setup:
+	mkdir -p .scratch
+	mkdir -p .scratch/debug .scratch/out .scratch/prof
+	stack exec which profiteur || stack install profiteur
+.PHONY: setup
 
 build:
 	stack install --verbosity warn --pedantic --ghc-options "-O2 -optc-O3 -optc-ffast-math -optc-march=core2 -fforce-recomp"
@@ -41,19 +55,26 @@ seed: build
 .PHONY: seed
 
 run-base:
-	(/usr/local/bin/time -v sort --key 1 /tmp/in-$(ROWS).csv --output /tmp/out-base-$(ROWS).csv) \
-	&> .scratch/out/base-$(ROWS)-$(TIMESTAMP)-$(MARKER).txt
+	(/usr/local/bin/time -v sort --key 1 /tmp/in-$(ROWS).csv --output /tmp/out-base-$(ROWS).csv --parallel=4 --batch-size=16 --buffer-size=10M) \
+	&> .scratch/out/base-$(TIMESTAMP)-$(MARKER)-$(ROWS).txt
 .PHONY: run-base
 
 run-x: build clean
-	(/usr/local/bin/time -v filesort --keys "[0]" --in /tmp/in-$(ROWS).csv --output /tmp/out-x-$(ROWS).csv) \
-	&> .scratch/out/x-$(ROWS)-$(TIMESTAMP)-$(MARKER).txt
+	(/usr/local/bin/time -v filesort ${ARGS} +RTS -s) \
+	&> .scratch/out/x-$(TIMESTAMP)-$(MARKER)-$(ROWS).txt
+
+	code .scratch/out/x-$(TIMESTAMP)-$(MARKER)-$(ROWS).txt
 .PHONY: run-x
 
-# run-x: build clean
-# 	(/usr/local/bin/time -v filesort --keys "[0]" --in /tmp/in-$(ROWS).csv --output /tmp/out-x-$(ROWS).csv --buffer-size=20M +RTS -p -sstderr) \
-# 	&> .scratch/out/x-$(ROWS)-$(TIMESTAMP)-Buff20MB.$(MARKER).txt
-# .PHONY: run-x
+run-x-prof: build-prof clean
+	(/usr/local/bin/time -v filesort ${ARGS} +RTS -p -sstderr) \
+	&> .scratch/out/x-$(TIMESTAMP)-prof-$(MARKER)-$(ROWS).txt
+
+	code .scratch/out/x-$(TIMESTAMP)-prof-$(MARKER)-$(ROWS).txt
+	mv filesort.prof .scratch/prof/filesort-$(TIMESTAMP)-$(MARKER)-$(ROWS).prof
+	stack exec -- profiteur .scratch/prof/filesort-$(TIMESTAMP)-$(MARKER)-$(ROWS).prof
+	open .scratch/prof/filesort-$(TIMESTAMP)-$(MARKER)-$(ROWS).prof.html
+.PHONY: run-x-prof
 
 test: build clean
 	sort --key 1,1 --output /tmp/test-base.csv data/comma-in-content.csv
