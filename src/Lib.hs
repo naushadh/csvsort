@@ -26,6 +26,7 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Vector as V
 import qualified Data.Vector.Split as Split
 import qualified Data.Vector.Algorithms.Merge as VA
+import qualified Data.Vector.Generic.Mutable as VGM
 import qualified Data.Csv as Csv
 import qualified Data.Csv.Incremental as Csvi
 import           Control.Monad.IO.Class (MonadIO, liftIO)
@@ -36,6 +37,8 @@ import qualified System.IO.Temp as Temp
 import qualified System.Directory as Dir
 import qualified System.FilePath as FP
 import qualified Data.PQueue.Min as Q
+
+import qualified Data.Time as Time
 
 -- logging
 -- import qualified Data.Time as Time
@@ -143,12 +146,8 @@ createSortedSlices c hasHeader h dir
   = S.runStream
   . S.asyncly
   $ S.mapM (saveTemp delim dir . fmap entityVal)
-  |$ S.mapM V.unsafeFreeze
-  |$ S.mapM (\rs -> VA.sort rs >> pure rs)
-  |$ S.mapM V.unsafeThaw
-  $ S.map V.fromList
-  -- |$ probe (putStrLn . (++) "fromCSV row#" . show . fst)
-  . S.mapM S.toList
+  |$ S.mapM sort'
+  |$ S.mapM S.toList
   . S.chunksOf 10000
   . fmap (uncurry Entity . validate pkIdx)
   . fromCsv delim (configBufferSize c) rowId
@@ -157,6 +156,11 @@ createSortedSlices c hasHeader h dir
     pkIdx = configKeys c
     delim = configDelimiter c
     rowId = startRowId hasHeader
+    -- internals are unsafe; trying to keep dangerous bits in one place.
+    sort' xs = do
+      mxs <- V.unsafeThaw . V.fromList $ xs
+      VA.sort mxs
+      V.unsafeFreeze mxs
 
 saveTemp :: Char -> FilePath -> V.Vector Row -> IO ()
 saveTemp delim dir rs = getTempFile dir >>= flip LBS.writeFile bs -- >> putStrLn "Saved to Temp"
@@ -194,11 +198,16 @@ mergeNFiles c fs
     n = V.length fs
     go = do
         let cfs = Split.chunksOf mf fs
+        -- begin time-sink zone; `mergeN` is slower when using >1 capabilities.
+        -- waiting on: https://github.com/composewell/streamly/issues/152
+        tStart <- Time.getCurrentTime
         S.runStream
           . S.asyncly
           . S.mapM (mergeNFiles' c)
           . S.fromList
           $ cfs
+        tEnd <- Time.getCurrentTime
+        print $ Time.diffUTCTime tEnd tStart
         pure . V.fromList $ fmap V.head cfs
 
 mergeNFiles' :: Config -> V.Vector FilePath -> IO FilePath
@@ -246,15 +255,17 @@ mergeN q ss
     go = case Q.minView q of
           Nothing -> S.nil
           Just (Indexed i x, qRem) -> do
-            case (ss V.!? i) of
-              Nothing -> pure x <> mergeN qRem ss
-              Just s -> do
-                mh <- S.yieldM . S.uncons $ s
-                let (qNext, oss)
-                      = case mh of
-                        Nothing -> (qRem, ss)
-                        Just (h, sNext) -> (Q.insert (Indexed i h) qRem, ss V.// [(i, sNext)])
-                pure x <> mergeN qNext oss
+            let s = ss V.! i
+            mh <- S.yieldM . S.uncons $ s
+            let (qNext, oss)
+                  = case mh of
+                    Nothing -> (qRem, ss)
+                    Just (h, sNext) -> (Q.insert (Indexed i h) qRem, modifyVectorIdx i sNext ss)
+            x `S.cons` mergeN qNext oss
+
+-- faster than `V.//` or `V.update`
+modifyVectorIdx :: Int -> a -> V.Vector a -> V.Vector a
+modifyVectorIdx i x = V.modify (\v -> VGM.write v i x)
 
 listDirectory :: FilePath -> IO [FilePath]
 listDirectory dir = fmap go <$> Dir.listDirectory dir

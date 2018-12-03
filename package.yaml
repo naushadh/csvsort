@@ -31,8 +31,7 @@ dependencies:
 - directory
 - filepath
 - pqueue
-# - time
-# - text
+- time
 
 library:
   source-dirs: src

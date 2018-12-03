@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 58636d41fa34a9a8a7c3b1fe2d24b6308324ee33ac07073dee129e7cb4edd572
+-- hash: a1352d8a45acc832ef61ca2bc03b19a86ce0da4528319e21e46679035eecf7ab
 
 name:           filesort
 version:        0.1.0.0
@@ -40,6 +40,7 @@ library
     , pqueue
     , streamly
     , temporary
+    , time
     , vector
     , vector-algorithms
     , vector-split
@@ -63,6 +64,7 @@ executable filesort
     , pqueue
     , streamly
     , temporary
+    , time
     , vector
     , vector-algorithms
     , vector-split
@@ -86,6 +88,7 @@ executable filesort-gen
     , pqueue
     , streamly
     , temporary
+    , time
     , vector
     , vector-algorithms
     , vector-split
@@ -109,6 +112,7 @@ test-suite filesort-test
     , pqueue
     , streamly
     , temporary
+    , time
     , vector
     , vector-algorithms
     , vector-split
