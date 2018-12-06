@@ -203,10 +203,7 @@ mergeNFiles c fs
     n = V.length fs
     go = do
         let cfs = Split.chunksOf mf fs
-        -- begin time-sink zone; `mergeN` is slower when using >1 capabilities.
-        -- waiting on: https://github.com/composewell/streamly/issues/152
         tStart <- Time.getCurrentTime
-        -- mapM_ (mergeNFiles' c) cfs
         S.mapM_ (mergeNFiles' c) $ S.fromList cfs
         tEnd <- Time.getCurrentTime
         print $ Time.diffUTCTime tEnd tStart
@@ -346,6 +343,9 @@ toCsv delim fp s
   $ s
   where
     appendRecord x b = Csvi.encodeRecord x <> b
+    -- NOTE: mkBuilder MUST only ever use a foldr like function!
+    -- Cassava demands it for proper incremental streaming:
+    -- https://hackage.haskell.org/package/cassava-0.5.1.0/docs/Data-Csv-Incremental.html#t:Builder
     mkBuilder = S.foldr appendRecord mempty
     saveStream s'
       = (liftIO . LBS.appendFile fp)
