@@ -26,10 +26,11 @@ endef
 export USAGE
 
 TIMESTAMP := $(shell date +%Y-%m-%dT%H:%M:%S)
-MARKER ?= default
 ROWS ?= 1M
-ARGS ?= --keys "[0]" --in /tmp/in-${ROWS}.csv --output /tmp/out-x-${ROWS}.csv
+PARALLEL ?= 4
+ARGS ?= --keys "[0]" --in /tmp/in-${ROWS}.csv --output /tmp/out-x-${ROWS}.csv --parallel=${PARALLEL}
 # ARGS ?= --keys "[0]" --in /tmp/in-${ROWS}.csv --output /tmp/out-x-${ROWS}.csv --parallel=1 --batch-size=16 --buffer-size=1M
+MARKER ?= default.parallel:${PARALLEL}
 
 help:
 	@echo "$$USAGE"

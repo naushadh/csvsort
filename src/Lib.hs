@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Lib
   ( Config(..)
@@ -49,7 +50,7 @@ defaultDelimiter :: Char
 defaultDelimiter = ','
 
 defaultBufferSize :: BufferSize
-defaultBufferSize = 200 * 1024 * 1024
+defaultBufferSize = 10 * 1024
 
 type RowId = Int
 type BufferSize = Int
@@ -146,10 +147,13 @@ createSortedSlices c hasHeader h dir
   = S.runStream
   . S.asyncly
   $ S.mapM (saveTemp delim dir . fmap entityVal)
-  |$ S.mapM sort'
-  |$ S.mapM S.toList
-  . S.chunksOf 10000
-  . fmap (uncurry Entity . validate pkIdx)
+  |$ S.mapM V.unsafeFreeze
+  |$ S.mapM (\rs -> VA.sort rs >> pure rs)
+  |$ S.mapM V.unsafeThaw
+  $ S.map V.fromList
+  -- |$ S.mapM sort'
+  . S.filter (not . null)
+  . fmap (fmap (uncurry Entity . validate pkIdx))
   . fromCsv delim (configBufferSize c) rowId
   $ h
   where
@@ -157,10 +161,11 @@ createSortedSlices c hasHeader h dir
     delim = configDelimiter c
     rowId = startRowId hasHeader
     -- internals are unsafe; trying to keep dangerous bits in one place.
-    sort' xs = do
-      mxs <- V.unsafeThaw . V.fromList $ xs
-      VA.sort mxs
-      V.unsafeFreeze mxs
+    -- -- {-# INLINE sort' #-}
+    -- sort' xs = do
+    --   mxs <- V.unsafeThaw . V.fromList $ xs
+    --   VA.sort mxs
+    --   V.unsafeFreeze mxs
 
 saveTemp :: Char -> FilePath -> V.Vector Row -> IO ()
 saveTemp delim dir rs = getTempFile dir >>= flip LBS.writeFile bs -- >> putStrLn "Saved to Temp"
@@ -201,11 +206,8 @@ mergeNFiles c fs
         -- begin time-sink zone; `mergeN` is slower when using >1 capabilities.
         -- waiting on: https://github.com/composewell/streamly/issues/152
         tStart <- Time.getCurrentTime
-        S.runStream
-          . S.asyncly
-          . S.mapM (mergeNFiles' c)
-          . S.fromList
-          $ cfs
+        -- mapM_ (mergeNFiles' c) cfs
+        S.mapM_ (mergeNFiles' c) $ S.fromList cfs
         tEnd <- Time.getCurrentTime
         print $ Time.diffUTCTime tEnd tStart
         pure . V.fromList $ fmap V.head cfs
@@ -216,8 +218,11 @@ mergeNFiles' c fs = do
   let dir = FP.takeDirectory fp1
   fpN <- getTempFile dir
   let delim = configDelimiter c
+  let flatten = S.concat :: S.Serial (S.Serial a) -> S.Serial a
   let fromCsv'
         = fmap (uncurry Entity . validate (configKeys c))
+        . flatten
+        . S.map S.fromList
         . fromCsv delim (configBufferSize c) 0
   let go hs = do
         let ss = fmap fromCsv' hs
@@ -238,8 +243,8 @@ mergeNFiles' c fs = do
   return fp1
 
 mergeNAsync :: Ord a => V.Vector (S.Serial a) -> S.Serial a
-mergeNAsync ss = do
-  -- ssA <- mapM (S.yieldM . S.mkAsync) ss
+mergeNAsync ss' = do
+  ss <- mapM (S.yieldM . S.mkAsync) ss'
   mhs <- mapM (S.yieldM . S.uncons) ss
   let (hs,ssO) = V.unzip . fmap Maybe.fromJust . V.filter Maybe.isJust $ mhs
   let ihs = V.imap Indexed hs
@@ -306,37 +311,43 @@ fromCsv
     , MonadIO (t m)
     , Csv.FromRecord a
     )
-  => Delim -> BufferSize -> Int -> IO.Handle -> t m (RowId, Either String a)
-fromCsv delim _bSize initRowId = S.unfoldrM (liftIO . go) . (,) initRowId
+  => Delim -> BufferSize -> Int -> IO.Handle -> t m [(RowId, Either String a)]
+fromCsv delim bSize initRowId h
+  = S.unfoldrM (liftIO . produce) (initRowId, pure $ Csvi.decodeWith opt Csv.NoHeader)
   where
     opt = Csv.DecodeOptions (fromIntegral . ord $ delim)
-    go (rowId, h) = do
-      let paramsNext = (rowId+1, h)
-      let mkRow x = return . pure $ ((rowId+1, x), paramsNext)
+
+    parseResult rowId (Csvi.Fail bs err) = Exception.throw $ FileParseError rowId bs err
+    parseResult rowId (Csvi.Many rs k)   = (zip [rowId..] rs, pure k)
+    parseResult rowId (Csvi.Done rs)     = (zip [rowId..] rs, Nothing)
+
+    produce (!_, Nothing) = pure Nothing
+    produce (rowId, Just parser) = do
+      let (rs, mkNextParser) = parseResult rowId parser
       isEof <- IO.hIsEOF h
-      if isEof
-        then pure Nothing
-        else do
-          l <- BS.hGetLine h
-          let res = Csv.decodeWith opt Csv.NoHeader . LBS.fromStrict $ l
-          case res of
-            Left err -> mkRow . Left $ err
-            Right rs -> if V.null rs
-                        then go (rowId+1, h)
-                        else mkRow . Right . V.head $ rs
+      bs <- if isEof
+        then pure mempty
+        else BS.hGet h bSize
+      pure . pure $ (rs, (rowId+length rs, fmap (\p -> p bs) mkNextParser))
 
 getPK :: PKIdx -> Row -> Maybe PK
 getPK pkIdx v = mapM ((V.!?) v) pkIdx
 
 {-# INLINABLE toCsv #-}
 toCsv
-  :: ( Csv.ToRecord a)
+  :: (S.MonadAsync m, Csv.ToRecord a)
   => Char
   -> FilePath
-  -> S.SerialT IO a
-  -> IO ()
-toCsv delim fp s = IO.withFile fp IO.WriteMode go
+  -> S.SerialT m a
+  -> m ()
+toCsv delim fp s
+  = S.mapM_ saveStream
+  . S.chunksOf 50000
+  $ s
   where
-    go h
-      = S.mapM_ (LBS.hPut h . Csv.encodeWith (csvEncodeOpt delim) . pure)
-      $ s
+    appendRecord x b = Csvi.encodeRecord x <> b
+    mkBuilder = S.foldr appendRecord mempty
+    saveStream s'
+      = (liftIO . LBS.appendFile fp)
+      . Csvi.encodeWith (csvEncodeOpt delim)
+      =<< mkBuilder s'

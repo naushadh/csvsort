@@ -41,6 +41,9 @@ A pure haskell alternative to the [GNU `sort`](http://man7.org/linux/man-pages/m
 
 ## Performance
 
+<details><summary>Setup</summary>
+<p>
+
 ### Setup
 
 - MacOS
@@ -84,7 +87,10 @@ A pure haskell alternative to the [GNU `sort`](http://man7.org/linux/man-pages/m
   # comparison
   ```
 
-- Results
+</p>
+</details>
+
+### Results
 
   Stat|Value
   ---|---
@@ -94,35 +100,35 @@ A pure haskell alternative to the [GNU `sort`](http://man7.org/linux/man-pages/m
 
   ```diff
   -       Command being timed: "sort --buffer-size=200M --key 1 /tmp/in.csv --output /tmp/out-base.csv"
-  +       Command being timed: "filesort --keys [0] --in /tmp/in-10M.csv --output /tmp/out-x-10M.csv +RTS -s"
+  +       Command being timed: "filesort --keys [0] --in /tmp/in-10M.csv --output /tmp/out-x-10M.csv --parallel=4 +RTS -s"
   -       User time (seconds): 128.78
-  +       User time (seconds): 228.74
+  +       User time (seconds): 236.00
   -       System time (seconds): 0.59
-  +       System time (seconds): 121.67
+  +       System time (seconds): 33.89
   -       Percent of CPU this job got: 301%
-  +       Percent of CPU this job got: 200%
+  +       Percent of CPU this job got: 245%
   -       Elapsed (wall clock) time (h:mm:ss or m:ss): 0:42.98
-  +       Elapsed (wall clock) time (h:mm:ss or m:ss): 2:54.87
+  +       Elapsed (wall clock) time (h:mm:ss or m:ss): 1:49.76
           Average shared text size (kbytes): 0
           Average unshared data size (kbytes): 0
           Average stack size (kbytes): 0
           Average total size (kbytes): 0
   -       Maximum resident set size (kbytes): 205736
-  +       Maximum resident set size (kbytes): 711564
+  +       Maximum resident set size (kbytes): 444360
           Average resident set size (kbytes): 0
   -       Major (requiring I/O) page faults: 1
   +       Major (requiring I/O) page faults: 0
   -       Minor (reclaiming a frame) page faults: 102795
-  +       Minor (reclaiming a frame) page faults: 177989
+  +       Minor (reclaiming a frame) page faults: 111182
   -       Voluntary context switches: 6
-  +       Voluntary context switches: 4
+  +       Voluntary context switches: 28
   -       Involuntary context switches: 37514
-  +       Involuntary context switches: 28407992
+  +       Involuntary context switches: 12344132
           Swaps: 0
   -       File system inputs: 0
+  +       File system inputs: 22
   -       File system outputs: 21
-  +       File system inputs: 1
-  +       File system outputs: 325
+  +       File system outputs: 1302
           Socket messages sent: 0
           Socket messages received: 0
           Signals delivered: 0
