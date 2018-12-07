@@ -4,10 +4,14 @@ import           Control.Applicative (optional)
 import qualified Lib
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Options.Applicative as Opt
-import           GHC.Conc (getNumCapabilities)
+import           GHC.Conc (getNumCapabilities, setNumCapabilities)
 
 main :: IO ()
-main = getNumCapabilities >>= Opt.execParser . opts >>= Lib.app
+main = do
+  nDefault <- getNumCapabilities
+  c <- Opt.execParser . opts $ nDefault
+  setNumCapabilities . Lib.configParallel $ c
+  Lib.app c
   where
     opts n = Opt.info (Opt.helper <*> config n)
       ( Opt.fullDesc

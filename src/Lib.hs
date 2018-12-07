@@ -20,7 +20,6 @@ import qualified Data.Maybe as Maybe
 import           Data.List.NonEmpty (NonEmpty)
 import           Data.Char (ord)
 import           Data.Function (on)
-import           GHC.Conc (setNumCapabilities)
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
@@ -126,7 +125,6 @@ debug = True
 
 app :: Config -> IO ()
 app c = do
-  setNumCapabilities $ configParallel c
   IO.withFile (configSource c) IO.ReadMode (go (configHasHeader c))
   where
     withTempDir False m = Temp.withSystemTempDirectory "filesort.txt" m
