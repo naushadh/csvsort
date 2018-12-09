@@ -12,6 +12,8 @@ module Lib
   , NMerge
   , app
   , probe
+  , Pos
+  , mkPos
   ) where
 
 import qualified System.IO as IO
@@ -54,9 +56,20 @@ defaultBufferSize = 10 * 1024
 type RowId = Int
 type BufferSize = Int
 type Row = Csv.Record
-type PKIdx = NonEmpty Int
+type PKIdx = NonEmpty Pos
 type PK = NonEmpty Csv.Field
 type Delim = Char
+
+newtype Pos = Pos { unPos :: Int }
+instance Show Pos where
+  show = show . unPos
+
+mkPos :: Int -> Either String Pos
+mkPos n
+  | n < min' = Left $ "Must at-least be: " <> show min'
+  | otherwise= pure . Pos . (-) 1 $ n
+  where
+    min' = 1
 
 newtype NMerge = NMerge { getNMerge :: Int }
 instance Show NMerge where
@@ -326,7 +339,7 @@ fromCsv delim bSize initRowId h
       pure . pure $ (rs, (rowId+length rs, fmap (\p -> p bs) mkNextParser))
 
 getPK :: PKIdx -> Row -> Maybe PK
-getPK pkIdx v = mapM ((V.!?) v) pkIdx
+getPK pkIdx v = mapM ((V.!?) v . unPos) pkIdx
 
 {-# INLINABLE toCsv #-}
 toCsv

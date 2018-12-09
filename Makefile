@@ -28,8 +28,7 @@ export USAGE
 TIMESTAMP := $(shell date +%Y-%m-%dT%H:%M:%S)
 ROWS ?= 1M
 PARALLEL ?= 4
-ARGS ?= --keys "[0]" --in /tmp/in-${ROWS}.csv --output /tmp/out-x-${ROWS}.csv --parallel=${PARALLEL}
-# ARGS ?= --keys "[0]" --in /tmp/in-${ROWS}.csv --output /tmp/out-x-${ROWS}.csv --parallel=1 --batch-size=16 --buffer-size=1M
+ARGS ?= --key 1 /tmp/in-${ROWS}.csv --output /tmp/out-x-${ROWS}.csv --parallel=${PARALLEL}
 MARKER ?= default.parallel:${PARALLEL}
 
 help:
@@ -56,7 +55,7 @@ seed: build
 .PHONY: seed
 
 run-base:
-	(/usr/local/bin/time -v sort --key 1 /tmp/in-$(ROWS).csv --output /tmp/out-base-$(ROWS).csv --parallel=4 --batch-size=16 --buffer-size=10M) \
+	(/usr/local/bin/time -v sort ${ARGS} --buffer-size=200M) \
 	&> .scratch/out/base-$(TIMESTAMP)-$(MARKER)-$(ROWS).txt
 .PHONY: run-base
 
@@ -78,8 +77,8 @@ run-x-prof: build-prof clean
 .PHONY: run-x-prof
 
 test: build clean
-	sort --key 1,1 --output /tmp/test-base.csv data/comma-in-content.csv
-	filesort --keys="[0]" --output /tmp/test-x.csv --in data/comma-in-content.csv
+	sort --key 1 --output /tmp/test-base.csv data/comma-in-content.csv
+	filesort --key 1 --output /tmp/test-x.csv data/comma-in-content.csv
 	diff -u /tmp/test-base.csv /tmp/test-x.csv
 .PHONY: test
 

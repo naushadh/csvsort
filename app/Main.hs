@@ -1,6 +1,6 @@
 module Main where
 
-import           Control.Applicative (optional)
+import           Control.Applicative (optional, some)
 import qualified Lib
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Options.Applicative as Opt
@@ -21,9 +21,8 @@ main = do
 config :: Int -> Opt.Parser Lib.Config
 config numCores
   = Lib.Config
-  <$> Opt.strOption
-      ( Opt.long "in"
-      <> Opt.metavar "SOURCE"
+  <$> Opt.strArgument
+      (  Opt.metavar "SOURCE"
       <> Opt.help "Source FilePath" )
   <*> Opt.switch
       ( Opt.long "header"
@@ -47,10 +46,10 @@ config numCores
       <> Opt.help "merge at most NMERGE inputs at once"
       <> Opt.showDefault
       <> Opt.value Lib.defaultNMerge )
-  <*> Opt.option (Opt.maybeReader parseNonEmpty)
-      ( Opt.long "keys"
-      <> Opt.metavar "KEYS"
-      <> Opt.help "Indicies of the fields to sort by" )
+  <*> fmap NonEmpty.fromList (some (Opt.option (Opt.eitherReader parsePos)
+      ( Opt.long "key"
+      <> Opt.metavar "POS"
+      <> Opt.help "Position of a key (origin 0)" )))
   <*> optional (Opt.strOption
       ( Opt.long "output"
       <> Opt.metavar "DESTINATION"
@@ -78,8 +77,8 @@ parseBufferSize s = case reads s of
 parseNMerge :: String -> Either String Lib.NMerge
 parseNMerge s = readEither "Int" s >>= Lib.mkNMerge
 
-parseNonEmpty :: Read a => String -> Maybe (NonEmpty.NonEmpty a)
-parseNonEmpty s = readMaybe s >>= NonEmpty.nonEmpty
+parsePos :: String -> Either String Lib.Pos
+parsePos s = readEither "Pos" s >>= Lib.mkPos
 
 readMaybe :: Read a => String -> Maybe a
 readMaybe s = case reads s of
