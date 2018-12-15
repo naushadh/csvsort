@@ -137,8 +137,7 @@ debug = True
 --     tpack = T.pack . show
 
 app :: Config -> IO ()
-app c = do
-  IO.withFile (configSource c) IO.ReadMode (go (configHasHeader c))
+app c = IO.withFile (configSource c) IO.ReadMode (go (configHasHeader c))
   where
     withTempDir False m = Temp.withSystemTempDirectory "filesort.txt" m
     withTempDir True m = m ".scratch/debug"
@@ -226,7 +225,7 @@ mergeNFiles' c fs = do
   let dir = FP.takeDirectory fp1
   fpN <- getTempFile dir
   let delim = configDelimiter c
-  let flatten = S.concat :: S.Serial (S.Serial a) -> S.Serial a
+  let flatten = S.concatMap id :: S.Serial (S.Serial a) -> S.Serial a
   let fromCsv'
         = fmap (uncurry Entity . validate (configKeys c))
         . flatten
@@ -238,7 +237,7 @@ mergeNFiles' c fs = do
         toCsv delim fpN . S.map entityVal $ sN
 
   Exception.bracket
-    (mapM (flip IO.openFile IO.ReadMode) fs)
+    (mapM (`IO.openFile` IO.ReadMode) fs)
     (mapM_ IO.hClose)
     go
 
@@ -343,22 +342,13 @@ getPK pkIdx v = mapM ((V.!?) v . unPos) pkIdx
 
 {-# INLINABLE toCsv #-}
 toCsv
-  :: (S.MonadAsync m, Csv.ToRecord a)
+  :: (Csv.ToRecord a, Show a)
   => Char
   -> FilePath
-  -> S.SerialT m a
-  -> m ()
-toCsv delim fp s
-  = S.mapM_ saveStream
-  . S.chunksOf 50000
-  $ s
+  -> S.SerialT IO a
+  -> IO ()
+toCsv delim fp s = IO.withFile fp IO.WriteMode go
   where
-    appendRecord x b = Csvi.encodeRecord x <> b
-    -- NOTE: mkBuilder MUST only ever use a foldr like function!
-    -- Cassava demands it for proper incremental streaming:
-    -- https://hackage.haskell.org/package/cassava-0.5.1.0/docs/Data-Csv-Incremental.html#t:Builder
-    mkBuilder = S.foldr appendRecord mempty
-    saveStream s'
-      = (liftIO . LBS.appendFile fp)
-      . Csvi.encodeWith (csvEncodeOpt delim)
-      =<< mkBuilder s'
+    go h= S.mapM_ (BS.hPut h)
+        . S.map (LBS.toStrict . Csv.encodeWith (csvEncodeOpt delim) . pure)
+        $ s

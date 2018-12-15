@@ -100,35 +100,35 @@ A pure haskell alternative to the [GNU `sort`](http://man7.org/linux/man-pages/m
 
   ```diff
   -       Command being timed: "sort --buffer-size=200M --key 1 /tmp/in.csv --output /tmp/out-base.csv"
-  +       Command being timed: "filesort --keys [0] --in /tmp/in-10M.csv --output /tmp/out-x-10M.csv --parallel=4 +RTS -s"
+  +       Command being timed: "filesort --key 1 /tmp/in-10M.csv --output /tmp/out-x-10M.csv --parallel=4 +RTS -s"
   -       User time (seconds): 128.78
-  +       User time (seconds): 236.00
+  +       User time (seconds): 230.60
   -       System time (seconds): 0.59
-  +       System time (seconds): 33.89
+  +       System time (seconds): 27.09
   -       Percent of CPU this job got: 301%
-  +       Percent of CPU this job got: 245%
+  +       Percent of CPU this job got: 256%
   -       Elapsed (wall clock) time (h:mm:ss or m:ss): 0:42.98
-  +       Elapsed (wall clock) time (h:mm:ss or m:ss): 1:49.76
+  +       Elapsed (wall clock) time (h:mm:ss or m:ss): 1:40.51
           Average shared text size (kbytes): 0
           Average unshared data size (kbytes): 0
           Average stack size (kbytes): 0
           Average total size (kbytes): 0
   -       Maximum resident set size (kbytes): 205736
-  +       Maximum resident set size (kbytes): 444360
+  +       Maximum resident set size (kbytes): 164756
           Average resident set size (kbytes): 0
   -       Major (requiring I/O) page faults: 1
   +       Major (requiring I/O) page faults: 0
   -       Minor (reclaiming a frame) page faults: 102795
-  +       Minor (reclaiming a frame) page faults: 111182
+  +       Minor (reclaiming a frame) page faults: 41448
   -       Voluntary context switches: 6
-  +       Voluntary context switches: 28
+  +       Voluntary context switches: 27
   -       Involuntary context switches: 37514
-  +       Involuntary context switches: 12344132
+  +       Involuntary context switches: 6774973
           Swaps: 0
   -       File system inputs: 0
-  +       File system inputs: 22
+  +       File system inputs: 12
   -       File system outputs: 21
-  +       File system outputs: 1302
+  +       File system outputs: 1276
           Socket messages sent: 0
           Socket messages received: 0
           Signals delivered: 0
