@@ -38,7 +38,7 @@ help:
 setup:
 	mkdir -p .scratch
 	mkdir -p .scratch/debug .scratch/out .scratch/prof
-	stack exec which profiteur || stack install profiteur
+	stack install --verbosity warn profiteur --resolver lts-12.22
 .PHONY: setup
 
 build:
@@ -64,6 +64,8 @@ run-x: build clean
 	&> .scratch/out/x-$(TIMESTAMP)-$(MARKER)-$(ROWS).txt
 
 	code .scratch/out/x-$(TIMESTAMP)-$(MARKER)-$(ROWS).txt
+	wc -l /tmp/out-x-${ROWS}.csv
+	sort -c /tmp/out-x-${ROWS}.csv
 .PHONY: run-x
 
 run-x-prof: build-prof clean
