@@ -29,11 +29,14 @@ config numCores
       <> Opt.help "Whether file has header" )
   <*> Opt.option Opt.auto
       ( Opt.long "field-separator"
+      <> Opt.short 't'
+      <> Opt.metavar "SEP"
       <> Opt.help "Field separator"
       <> Opt.showDefault
       <> Opt.value Lib.defaultDelimiter )
   <*> Opt.option (Opt.eitherReader Lib.mkBufferSize)
       ( Opt.long "buffer-size"
+      <> Opt.short 'S'
       <> Opt.metavar "SIZE"
       <> Opt.help "Use SIZE for main memory buffer. SIZE may be followed by the \
                     \ following multiplicative suffixes: % 1% of memory, b 1, K \
@@ -43,17 +46,19 @@ config numCores
   <*> Opt.option (Opt.eitherReader parseNMerge)
       ( Opt.long "batch-size"
       <> Opt.metavar "NMERGE"
-      <> Opt.help "merge at most NMERGE inputs at once"
+      <> Opt.help "merge at most NMERGE inputs at once; for more use temp files"
       <> Opt.showDefault
       <> Opt.value Lib.defaultNMerge )
   <*> fmap NonEmpty.fromList (some (Opt.option (Opt.eitherReader parsePos)
       ( Opt.long "key"
+      <> Opt.short 'k'
       <> Opt.metavar "POS"
-      <> Opt.help "Position of a key (origin 0)" )))
+      <> Opt.help "Position of a key (origin 1)" )))
   <*> optional (Opt.strOption
       ( Opt.long "output"
-      <> Opt.metavar "DESTINATION"
-      <> Opt.help "Where to output results; defaults to STDOUT" ))
+      <> Opt.short 'o'
+      <> Opt.metavar "FILE"
+      <> Opt.help "write result to FILE instead of standard output" ))
   <*> Opt.option Opt.auto
       ( Opt.long "parallel"
       <> Opt.metavar "N"
