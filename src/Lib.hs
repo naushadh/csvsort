@@ -6,6 +6,7 @@ module Lib
   ( Config(..)
   , defaultDelimiter
   , defaultBufferSize
+  , mkBufferSize
   , BufferSize
   , defaultNMerge
   , mkNMerge
@@ -50,11 +51,57 @@ import qualified Data.Time as Time
 defaultDelimiter :: Char
 defaultDelimiter = ','
 
+data ByteMultiplier = B | KB | MB | GB | TB | PB | EB | ZB | YB
+  deriving Show
+
+mkByteMultiplier :: String -> Either String ByteMultiplier
+mkByteMultiplier "b" = pure B
+mkByteMultiplier ""  = pure KB
+mkByteMultiplier "K" = pure KB
+mkByteMultiplier "M" = pure MB
+mkByteMultiplier "G" = pure GB
+mkByteMultiplier "T" = pure TB
+mkByteMultiplier "P" = pure PB
+mkByteMultiplier "E" = pure EB
+mkByteMultiplier "Z" = pure ZB
+mkByteMultiplier "Y" = pure YB
+mkByteMultiplier _   = Left "Invalid multiplier"
+
+intByteMultiplier :: ByteMultiplier -> Int
+intByteMultiplier  B = 1024^(0::Int)
+intByteMultiplier KB = 1024^(1::Int)
+intByteMultiplier MB = 1024^(2::Int)
+intByteMultiplier GB = 1024^(3::Int)
+intByteMultiplier TB = 1024^(4::Int)
+intByteMultiplier PB = 1024^(5::Int)
+intByteMultiplier EB = 1024^(6::Int)
+intByteMultiplier ZB = 1024^(7::Int)
+intByteMultiplier YB = 1024^(8::Int)
+
+data BufferSize = BufferSize ByteMultiplier Int
+  deriving Show
+
+getBufferSize :: BufferSize -> Int
+getBufferSize (BufferSize m n) = (intByteMultiplier m * n) `div` divFactor
+  where
+    -- this magic ratio seems to work best
+    -- TODO: find a better way to calculate this based on input row(s)
+    divFactor = 10 * 1024
+
 defaultBufferSize :: BufferSize
-defaultBufferSize = 10 * 1024
+defaultBufferSize = BufferSize MB 200
+
+mkBufferSize :: String -> Either String BufferSize
+mkBufferSize = go . reads
+  where
+    go [(n, m)] = BufferSize <$> mkByteMultiplier m <*> parseVal n
+    go _ = Left "Invalid multiplier or value"
+    parseVal n
+      | n < min' = Left $ "Must at-least be: " <> show min'
+      | otherwise = pure n
+      where min' = 10 * 1024
 
 type RowId = Int
-type BufferSize = Int
 type Row = Csv.Record
 type PKIdx = NonEmpty Pos
 type PK = NonEmpty Csv.Field
@@ -334,7 +381,7 @@ fromCsv delim bSize initRowId h
       isEof <- IO.hIsEOF h
       bs <- if isEof
         then pure mempty
-        else BS.hGet h bSize
+        else BS.hGet h $ getBufferSize bSize
       pure . pure $ (rs, (rowId+length rs, fmap (\p -> p bs) mkNextParser))
 
 getPK :: PKIdx -> Row -> Maybe PK

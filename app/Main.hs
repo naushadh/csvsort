@@ -32,7 +32,7 @@ config numCores
       <> Opt.help "Field separator"
       <> Opt.showDefault
       <> Opt.value Lib.defaultDelimiter )
-  <*> Opt.option (Opt.maybeReader parseBufferSize)
+  <*> Opt.option (Opt.eitherReader Lib.mkBufferSize)
       ( Opt.long "buffer-size"
       <> Opt.metavar "SIZE"
       <> Opt.help "Use SIZE for main memory buffer. SIZE may be followed by the \
@@ -59,20 +59,6 @@ config numCores
       <> Opt.metavar "N"
       <> Opt.help "change the number of sorts run concurrently to N"
       <> Opt.value numCores )
-
-parseBufferSize :: String -> Maybe Int
-parseBufferSize s = case reads s of
-    [(x, "b")] -> pure x
-    [(x, "")] ->  pure (x * 1024)
-    [(x, "K")] -> pure (x * 1024)
-    [(x, "M")] -> pure (x * 1024 * 1024)
-    [(x, "G")] -> pure (x * 1024 * 1024 * 1024)
-    [(x, "T")] -> pure (x * 1024 * 1024 * 1024 * 1024)
-    [(x, "P")] -> pure (x * 1024 * 1024 * 1024 * 1024 * 1024)
-    [(x, "E")] -> pure (x * 1024 * 1024 * 1024 * 1024 * 1024 * 1024)
-    [(x, "Z")] -> pure (x * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024)
-    [(x, "Y")] -> pure (x * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024)
-    _ -> Nothing
 
 parseNMerge :: String -> Either String Lib.NMerge
 parseNMerge s = readEither "Int" s >>= Lib.mkNMerge
