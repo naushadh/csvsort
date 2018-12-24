@@ -174,9 +174,6 @@ data Error
   deriving Show
 instance Exception.Exception Error
 
-debug :: Bool
-debug = True
-
 -- logStdout :: T.Text -> IO ()
 -- logStdout msg = Time.getCurrentTime >>= TIO.putStrLn . tpack >> TIO.putStrLn msg
 --   where
@@ -186,12 +183,11 @@ debug = True
 app :: Config -> IO ()
 app c = IO.withFile (configSource c) IO.ReadMode (go (configHasHeader c))
   where
-    withTempDir False m = Temp.withSystemTempDirectory "filesort.txt" m
-    withTempDir True m = m ".scratch/debug"
+    withTempDir = Temp.withSystemTempDirectory "filesort.txt"
     go hasHeader' h = do
       let hasHeader = if hasHeader' then Csv.HasHeader else Csv.NoHeader
       header <- getHeader hasHeader h
-      withTempDir debug $ \dir -> do
+      withTempDir $ \dir -> do
         -- logStdout "split: BEGIN"
         createSortedSlices c hasHeader h dir
         -- logStdout "split: END; merge: BEGIN"
